@@ -3,9 +3,9 @@ name: GC Fuel Data Pipeline
 on:
   schedule:
     - cron: '0 8 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Esto permite que le des tú al botón de "Play"
 
-# 🔑 ESTO ES VITAL: Permite a la Action escribir en tu repositorio
+# 🔑 SOLUCIÓN AL EXIT CODE 1: Permisos de escritura
 permissions:
   contents: write
 
@@ -15,10 +15,10 @@ jobs:
 
     steps:
     - name: Checkout del repositorio
-      uses: actions/checkout@v4 # Actualizado a v4
+      uses: actions/checkout@v4 # Actualizado para evitar el aviso de Node.js
 
     - name: Configurar Python
-      uses: actions/setup-python@v5 # Actualizado a v5
+      uses: actions/setup-python@v5 # Actualizado para evitar el aviso de Node.js
       with:
         python-version: '3.10'
 
@@ -35,5 +35,5 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add data/*.parquet
-        # Solo hacemos commit si hay cambios reales para evitar el Error 1
+        # Solo hacemos commit si hay cambios reales para que no falle si los precios no han variado
         git diff --quiet && git diff --staged --quiet || (git commit -m "📊 Update fuel data: $(date +'%Y-%m-%d')" && git push)
