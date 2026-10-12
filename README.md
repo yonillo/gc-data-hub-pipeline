@@ -1,54 +1,101 @@
 # ⛽ Gran Canaria Fuel Data Pipeline (ETL)
 
 [![GC Fuel Data Pipeline](https://github.com/yonillo/gc-data-hub-pipeline/actions/workflows/main.yml/badge.svg)](https://github.com/yonillo/gc-data-hub-pipeline/actions/workflows/main.yml)
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Storage Format](https://img.shields.io/badge/Storage-Apache%20Parquet-orange.svg)](https://parquet.apache.org/)
+[![Automation](https://img.shields.io/badge/Orchestration-GitHub%20Actions-2088FF.svg)](https://github.com/features/actions)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED.svg)](https://www.docker.com/)
 
-Este proyecto es un pipeline de ingeniería de datos (ETL) automatizado que monitoriza, procesa y almacena los precios de carburantes en la provincia de Las Palmas, con un enfoque específico en **Agaete, Gran Canaria**.
-
----
-
-## 🏗️ Arquitectura del Pipeline
-
-El sistema sigue una arquitectura de tres capas diseñada para ser robusta, escalable y eficiente:
-
-
-
-1.  **Extract (Extracción):** Ingesta de datos en tiempo real desde la API oficial del Ministerio de Industria, Energía y Turismo. Manejo de excepciones y validación de respuesta de red.
-2.  **Transform (Transformación):** Procesamiento con **Pandas**. Limpieza de tipos de datos, normalización de precios (comma-to-dot), filtrado geográfico por ID de provincia (35) y generación de métricas comparativas.
-3.  **Load (Carga):** Persistencia en formato **Apache Parquet**. A diferencia del CSV, Parquet ofrece almacenamiento columnar y compresión de alta eficiencia, ideal para entornos de Big Data.
+Automated production Data Engineering (ETL) pipeline that ingests, cleans, analyzes, and persists daily fuel station prices across the province of Las Palmas (Gran Canaria, Spain), with micro-regional price differential analytics focused on **Agaete**.
 
 ---
 
-## 🛠️ Tech Stack & Herramientas
+## 🏗️ Architecture & Data Flow
 
-* **Lenguaje:** Python 3.10+
-* **Procesamiento:** [Pandas](https://pandas.pydata.org/) & [PyArrow](https://arrow.apache.org/docs/python/index.html)
-* **Automatización:** [GitHub Actions](https://github.com/features/actions) (Ejecución programada mediante Cron)
-* **Formato de Datos:** Apache Parquet (Storage-efficient)
-* **Infraestructura:** Entorno Linux (Ubuntu-latest) en GitHub Runners
+```mermaid
+flowchart LR
+    A["Government REST API\n(Minetur / MITECO)"] -->|Extract| B["Extraction Module\n(Resilient HTTP & Session)"]
+    B -->|Transform| C["Pandas & PyArrow Engine\n(Clean, Cast, Filter Prov 35)"]
+    C -->|Analytics| D["Price Metrics\n(Agaete vs Regional Mean)"]
+    D -->|Load| E["Columnar Storage\n(/data/*.parquet)"]
+    F["GitHub Actions Cron\n(Daily @ 08:00 UTC)"] -.->|Trigger| B
+    E -.->|Auto-Commit| G["Versioned Data Lake"]
+```
 
----
-
-## 🤖 Automatización y DevOps
-
-El pipeline es un **organismo vivo**. Gracias a GitHub Actions, el proceso se dispara automáticamente cada mañana a las 08:00 AM UTC. 
-
-* **CI/CD:** El flujo instala dependencias, ejecuta la lógica de ingeniería y realiza un *auto-commit* de los nuevos datos particionados en la carpeta `/data`.
-* **Logging:** Sistema de logs profesional para monitorizar la salud del proceso y depurar errores de la fuente de datos.
-
----
-
-## 📊 ¿Por qué Parquet?
-
-En este proyecto he sustituido el uso tradicional de CSV por **Parquet** debido a:
-* **Compresión:** Reducción de hasta un 80% en el peso del archivo.
-* **Esquema:** Preservación estricta de los tipos de datos (float, int, datetime).
-* **Rendimiento:** Optimizado para futuras consultas analíticas y dashboards.
+1. **Extract (`src/extract.py`):** Ingests live data from Spain's Ministry of Industry and Energy REST API. Features connection resilience with automated retries and exponential backoff.
+2. **Transform (`src/transform.py`):** Cleans decimal encodings, normalizes numeric datatypes, filters geographic records for Las Palmas (`IDProvincia: 35`), and computes comparative variance metrics.
+3. **Load (`src/load.py`):** Serializes clean data into **Apache Parquet** columnar format, creating daily snapshots and updating the `latest` pointer.
 
 ---
 
-## 📈 Análisis Local (Agaete Focus)
-El pipeline calcula dinámicamente el diferencial de precios entre el municipio de **Agaete** y la media provincial, permitiendo identificar oportunidades de ahorro y tendencias de mercado local en tiempo real.
+## 💡 Engineering & Business Impact
+
+- **Storage Efficiency:** Migrating from CSV to **Apache Parquet** achieves an **~80% reduction in storage footprint**, maintaining strict columnar schemas and high compression ratios.
+- **Zero-Cost Serverless Orchestration:** Daily ingestion scheduled via GitHub Actions cron runners with automated CI/CD push to storage.
+- **Fast Analytics:** Downstream query latency reduced by columnar projections and typed schema preservation.
 
 ---
 
-> Prototipo desarrollado por **Yone Suárez** | Estudiante de Ciencia e Ingeniería de Datos (ULPGC) & Administrador Linux (Red Hat Certified).
+## 📂 Repository Structure
+
+```
+gc-data-hub-pipeline/
+├── .github/workflows/
+│   └── main.yml           # Automated daily cron workflow (08:00 UTC)
+├── config/
+│   └── settings.py        # Pipeline parameters & paths
+├── data/
+│   ├── fuel_prices_latest.parquet
+│   └── fuel_prices_gc_*.parquet
+├── src/
+│   ├── extract.py         # REST API ingestion & error handling
+│   ├── transform.py       # Data cleansing & price transformations
+│   ├── load.py            # Apache Parquet serialization
+│   ├── main.py            # ETL orchestrator
+│   └── utils/
+│       └── logger.py      # Structured UTF-8 logging
+├── Dockerfile             # Multi-platform container definition
+├── requirements.txt       # Pinned production dependencies
+└── README.md
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Local Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/yonillo/gc-data-hub-pipeline.git
+cd gc-data-hub-pipeline
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the pipeline
+python src/main.py
+```
+
+### 2. Run with Docker
+
+```bash
+# Build the container
+docker build -t gc-fuel-pipeline .
+
+# Execute ETL inside container
+docker run --rm -v $(pwd)/data:/app/data gc-fuel-pipeline
+```
+
+---
+
+## 👨‍💻 Author
+
+**Yone Suárez Viera**  
+Data Science & Engineering Student @ ULPGC | Gran Canaria 🏝️  
+- **LinkedIn:** [yone-suarez](https://linkedin.com/in/yone-suarez)
+- **Portfolio:** [yonesuarez.es](https://yonesuarez.es)
